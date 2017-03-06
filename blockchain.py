@@ -1,4 +1,5 @@
 import hashlib
+import json
 from datetime import datetime
 from typing import Optional, List
 
@@ -95,6 +96,9 @@ class Blockchain(object):
             self._blockchain = blocks
         else:
             self.log('Received blockchain invalid')
+
+    def json(self):
+        return json.dumps([b.dict() for b in self.blocks])
 
     def log(self, msg):
         if self.debug:

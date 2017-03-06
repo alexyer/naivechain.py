@@ -1,3 +1,4 @@
+import json
 import unittest
 from datetime import datetime
 
@@ -110,3 +111,7 @@ class TestBlockchain(unittest.TestCase):
 
         self.assertEqual(new_latest_block, self.blockchain.latest_block)
         self.assertEqual(3, self.blockchain.length)
+
+    def test_json(self):
+        self.blockchain.add_block(self.blockchain.generate_new_block('new-block'))
+        self.assertEqual(json.dumps([b.dict() for b in self.blockchain.blocks]), self.blockchain.json())
