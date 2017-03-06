@@ -1,7 +1,6 @@
 import hashlib
-from typing import Optional, List
-
 from datetime import datetime
+from typing import Optional, List
 
 
 class Block(object):
@@ -17,6 +16,10 @@ class Block(object):
     def __eq__(self, other) -> bool:
         return self.index == other.index and self.previous_hash == other.previous_hash \
                and self.timestamp == other.timestamp and self.data == other.data and self.hash == other.hash
+
+    def dict(self):
+        return {'index': self.index, 'previous_hash': self.previous_hash,
+                'timestamp': self.timestamp, 'data': self.data, 'hash': self.hash}
 
 
 class Blockchain(object):

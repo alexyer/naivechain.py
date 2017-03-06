@@ -22,6 +22,11 @@ class TestBlock(unittest.TestCase):
         self.assertEqual(block, other_block)
         self.assertNotEqual(block, another_block)
 
+    def test_dict(self):
+        block = Block(1, '12', 1465154705, 'test-block', '12345')
+        self.assertEqual({'index': 1, 'previous_hash': '12', 'timestamp': 1465154705,
+                          'data': 'test-block', 'hash': '12345'}, block.dict())
+
 
 class TestBlockchain(unittest.TestCase):
     def setUp(self):
