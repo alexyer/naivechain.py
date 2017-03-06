@@ -6,7 +6,7 @@ from aiohttp import web
 from aiohttp.test_utils import AioHTTPTestCase, unittest_run_loop
 
 from blockchain import Block, Blockchain
-from main import get_app, blockchain, MessageTypes
+from main import get_server, MessageTypes, Server
 
 
 class TestBlock(unittest.TestCase):
@@ -128,7 +128,8 @@ class TestBlockchain(unittest.TestCase):
 
 class HTTPTest(AioHTTPTestCase):
     async def get_application(self, loop):
-        return get_app(loop)
+        self.server = get_server(loop)
+        return self.server.app
 
     @unittest_run_loop
     async def test_blocks(self):
@@ -136,7 +137,7 @@ class HTTPTest(AioHTTPTestCase):
         self.assertEqual(200, request.status)
 
         text = await request.text()
-        self.assertEqual(text, blockchain.json())
+        self.assertEqual(text, self.server.blockchain.json())
 
     @unittest_run_loop
     async def test_mine_block(self):
@@ -144,12 +145,13 @@ class HTTPTest(AioHTTPTestCase):
         self.assertEqual(200, request.status)
 
         new_block_dict = json.loads(await request.text())
-        self.assertEqual(blockchain.latest_block.data, new_block_dict['data'])
+        self.assertEqual(self.server.blockchain.latest_block.data, new_block_dict['data'])
 
 
 class WSTest(AioHTTPTestCase):
     async def get_application(self, loop):
-        return get_app(loop)
+        self.server = Server(web.Application(loop=loop))
+        return self.server.app
 
     @unittest_run_loop
     async def test_query_latest(self):
@@ -158,7 +160,7 @@ class WSTest(AioHTTPTestCase):
 
         async for msg in ws:
             data = json.loads(msg.data)['data']
-            self.assertEqual(data, blockchain.latest_block.dict())
+            self.assertEqual(data, self.server.blockchain.latest_block.dict())
             return ws.close()
 
     @unittest_run_loop
@@ -168,5 +170,17 @@ class WSTest(AioHTTPTestCase):
 
         async for msg in ws:
             data = json.loads(msg.data)['data']
-            self.assertEqual(data, blockchain.dict())
+            self.assertEqual(data, self.server.blockchain.dict())
+            return ws.close()
+
+    @unittest_run_loop
+    async def test_blockchain_received__append(self):
+        other_blockchain = Blockchain()
+        other_blockchain.add_block(other_blockchain.generate_new_block('new-block'))
+
+        ws = await self.client.ws_connect('/ws')
+        ws.send_str(json.dumps({'type': MessageTypes.RESPONSE_BLOCKCHAIN, 'data': other_blockchain.dict()}))
+
+        async for msg in ws:
+            self.assertEqual(other_blockchain.latest_block, self.server.blockchain.latest_block)
             return ws.close()
