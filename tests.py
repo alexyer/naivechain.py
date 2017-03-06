@@ -6,7 +6,7 @@ from aiohttp import web
 from aiohttp.test_utils import AioHTTPTestCase, unittest_run_loop
 
 from blockchain import Block, Blockchain
-from main import get_app, blockchain
+from main import get_app, blockchain, MessageTypes
 
 
 class TestBlock(unittest.TestCase):
@@ -145,3 +145,28 @@ class HTTPTest(AioHTTPTestCase):
 
         new_block_dict = json.loads(await request.text())
         self.assertEqual(blockchain.latest_block.data, new_block_dict['data'])
+
+
+class WSTest(AioHTTPTestCase):
+    async def get_application(self, loop):
+        return get_app(loop)
+
+    @unittest_run_loop
+    async def test_query_latest(self):
+        ws = await self.client.ws_connect('/ws')
+        ws.send_str(json.dumps({'type': MessageTypes.QUERY_LATEST}))
+
+        async for msg in ws:
+            data = json.loads(msg.data)['data']
+            self.assertEqual(data, blockchain.latest_block.dict())
+            return ws.close()
+
+    @unittest_run_loop
+    async def test_query_all(self):
+        ws = await self.client.ws_connect('/ws')
+        ws.send_str(json.dumps({'type': MessageTypes.QUERY_ALL}))
+
+        async for msg in ws:
+            data = json.loads(msg.data)['data']
+            self.assertEqual(data, blockchain.dict())
+            return ws.close()

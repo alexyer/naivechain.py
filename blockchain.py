@@ -100,8 +100,11 @@ class Blockchain(object):
         else:
             self.log('Received blockchain invalid')
 
-    def json(self):
-        return json.dumps([b.dict() for b in self.blocks])
+    def dict(self) -> List[dict]:
+        return [b.dict() for b in self.blocks]
+
+    def json(self) -> str:
+        return json.dumps(self.dict())
 
     def log(self, msg):
         if self.debug:
