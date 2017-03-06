@@ -18,9 +18,12 @@ class Block(object):
         return self.index == other.index and self.previous_hash == other.previous_hash \
                and self.timestamp == other.timestamp and self.data == other.data and self.hash == other.hash
 
-    def dict(self):
+    def dict(self) -> dict:
         return {'index': self.index, 'previous_hash': self.previous_hash,
                 'timestamp': self.timestamp, 'data': self.data, 'hash': self.hash}
+
+    def json(self) -> str:
+        return json.dumps(self.dict())
 
 
 class Blockchain(object):

@@ -2,10 +2,17 @@ import json
 import unittest
 from datetime import datetime
 
+from aiohttp import web
+from aiohttp.test_utils import AioHTTPTestCase, unittest_run_loop
+
 from blockchain import Block, Blockchain
+from main import get_app, blockchain
 
 
 class TestBlock(unittest.TestCase):
+    def setUp(self):
+        self.block = Block(1, '12', 1465154705, 'test-block', '12345')
+
     def test_new_block(self):
         block = Block(1, '12', 1465154705, 'test-block', '12345')
 
@@ -16,17 +23,19 @@ class TestBlock(unittest.TestCase):
         self.assertEqual(block.hash, '12345')
 
     def test_block_eq(self):
-        block = Block(1, '12', 1465154705, 'test-block', '12345')
         other_block = Block(1, '12', 1465154705, 'test-block', '12345')
         another_block = Block(2, '12', 1465154705, 'test-block', '12345')
 
-        self.assertEqual(block, other_block)
-        self.assertNotEqual(block, another_block)
+        self.assertEqual(self.block, other_block)
+        self.assertNotEqual(self.block, another_block)
 
     def test_dict(self):
-        block = Block(1, '12', 1465154705, 'test-block', '12345')
         self.assertEqual({'index': 1, 'previous_hash': '12', 'timestamp': 1465154705,
-                          'data': 'test-block', 'hash': '12345'}, block.dict())
+                          'data': 'test-block', 'hash': '12345'}, self.block.dict())
+
+    def test_json(self):
+        self.assertEqual(json.dumps({'index': 1, 'previous_hash': '12', 'timestamp': 1465154705,
+                                     'data': 'test-block', 'hash': '12345'}), self.block.json())
 
 
 class TestBlockchain(unittest.TestCase):
@@ -115,3 +124,24 @@ class TestBlockchain(unittest.TestCase):
     def test_json(self):
         self.blockchain.add_block(self.blockchain.generate_new_block('new-block'))
         self.assertEqual(json.dumps([b.dict() for b in self.blockchain.blocks]), self.blockchain.json())
+
+
+class HTTPTest(AioHTTPTestCase):
+    async def get_application(self, loop):
+        return get_app(loop)
+
+    @unittest_run_loop
+    async def test_blocks(self):
+        request = await self.client.request("GET", "/blocks")
+        self.assertEqual(200, request.status)
+
+        text = await request.text()
+        self.assertEqual(text, blockchain.json())
+
+    @unittest_run_loop
+    async def test_mine_block(self):
+        request = await self.client.request("POST", "/mineBlock", data='new-block')
+        self.assertEqual(200, request.status)
+
+        new_block_dict = json.loads(await request.text())
+        self.assertEqual(blockchain.latest_block.data, new_block_dict['data'])
