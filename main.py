@@ -32,13 +32,17 @@ class Server(object):
         self.app.router.add_get('/ws', self.ws_handler)
 
     async def connect_to_peers(self, peers: List[str]):
-        async with aiohttp.ClientSession(loop=self.loop) as session:
-            for peer in peers:
-                connection = await session.ws_connect(peer)
-                self.peer_connections.append(connection)
+        if not self.session:
+            self.session = aiohttp.ClientSession(loop=self.loop)
+
+        for peer in peers:
+            connection = await self.session.ws_connect(peer)
+            self.peer_connections.append(connection)
 
     async def broadcast(self, msg: str):
         for peer_connection in self.peer_connections:
+            print('broadcast')
+            print(msg)
             await peer_connection.send_str(msg)
 
     async def blocks(self, request):
@@ -48,6 +52,7 @@ class Server(object):
         data = convert_loads((await request.read()).decode('utf-8'))['data']
         new_block = self.blockchain.generate_new_block(data)
         self.blockchain.add_block(new_block)
+        await self.broadcast(self.get_response_latest_msg())
         print('block added ', new_block.json())
         return web.Response(text=new_block.json(), content_type='application/json')
 
@@ -68,7 +73,7 @@ class Server(object):
         received_blocks = convert_loads(msg.data)['data']
         latest_block_received = received_blocks[-1]
 
-        if len(received_blocks) > self.blockchain.length:
+        if latest_block_received['index'] > self.blockchain.latest_block.index:
             print('blockchain possibly behind. We got: {} Peer got: {}'.format(self.blockchain.length,
                                                                                len(received_blocks)))
 
@@ -83,9 +88,9 @@ class Server(object):
                 print('Received blockchain is longer than current blockchain')
                 self.blockchain.replace_chain(received_blocks)
                 await self.broadcast(self.get_response_latest_msg())
-            ws.send_str(msg.data)
+            await ws.send_str(msg.data)
         else:
-            ws.send_str(None)
+            await ws.send_str(msg.data)
 
     def get_response_latest_msg(self) -> str:
         return convert_dumps({'type': MessageTypes.RESPONSE_BLOCKCHAIN,
