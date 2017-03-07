@@ -147,13 +147,13 @@ class HTTPTest(AioHTTPTestCase):
         new_block_dict = json.loads(await request.text())
         self.assertEqual(self.server.blockchain.latest_block.data, new_block_dict['data'])
 
-    @unittest_run_loop
-    async def test_add_peer(self):
-        address = '{}:{}'.format(self.client.server.host, self.client.server.port)
-        self.client.server.start_server()
-        request = await self.client.request("POST", "/addPeer", data='{"peer": "%s"}' % address)
-        self.assertEqual(200, request.status)
-        print(self.server.peer_connections)
+    # @unittest_run_loop
+    # async def test_add_peer(self):
+    #     address = '{}:{}'.format(self.client.server.host, self.client.server.port)
+    #     self.client.server.start_server()
+    #     request = await self.client.request("POST", "/addPeer", data='{"peer": "%s"}' % address)
+    #     self.assertEqual(200, request.status)
+    #     print(self.server.peer_connections)
 
 
 class WSTest(AioHTTPTestCase):

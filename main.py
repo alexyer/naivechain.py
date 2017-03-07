@@ -34,9 +34,12 @@ class Server(object):
     async def connect_to_peers(self, peers: List[str]):
         async with aiohttp.ClientSession(loop=self.loop) as session:
             for peer in peers:
-                print(peer)
                 connection = await session.ws_connect(peer)
-                # self.peer_connections.append(connection)
+                self.peer_connections.append(connection)
+
+    async def broadcast(self, msg: str):
+        for peer_connection in self.peer_connections:
+            await peer_connection.send_str(msg)
 
     async def blocks(self, request):
         return web.Response(text=self.blockchain.json(), content_type='application/json')
@@ -72,16 +75,24 @@ class Server(object):
             if self.blockchain.latest_block.hash == latest_block_received['previous_hash']:
                 print('We can append received block to our chain')
                 self.blockchain.add_block(Block(**latest_block_received))
-                # TODO(alexyer): broadcast
+                await self.broadcast(self.get_response_latest_msg())
             elif len(received_blocks) == 1:
                 print('We have to query the chain from our peer')
-                # TODO(alexyer): broadcast
+                await self.broadcast(self.get_query_all_msg())
             else:
                 print('Received blockchain is longer than current blockchain')
                 self.blockchain.replace_chain(received_blocks)
+                await self.broadcast(self.get_response_latest_msg())
             ws.send_str(msg.data)
         else:
             ws.send_str(None)
+
+    def get_response_latest_msg(self) -> str:
+        return json.dumps({'type': MessageTypes.RESPONSE_BLOCKCHAIN,
+                           'data': [self.blockchain.latest_block.dict()]})
+
+    def get_query_all_msg(self) -> str:
+        return json.dumps({'type': MessageTypes.QUERY_ALL})
 
     async def ws_handler(self, request):
         ws = web.WebSocketResponse()
