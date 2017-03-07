@@ -2,11 +2,11 @@ import json
 import unittest
 from datetime import datetime
 
-from aiohttp import web
 from aiohttp.test_utils import AioHTTPTestCase, unittest_run_loop
 
 from blockchain import Block, Blockchain
 from main import get_server, MessageTypes, Server
+from utils import convert_dumps, convert_loads
 
 
 class TestBlock(unittest.TestCase):
@@ -34,7 +34,7 @@ class TestBlock(unittest.TestCase):
                           'data': 'test-block', 'hash': '12345'}, self.block.dict())
 
     def test_json(self):
-        self.assertEqual(json.dumps({'index': 1, 'previous_hash': '12', 'timestamp': 1465154705,
+        self.assertEqual(convert_dumps({'index': 1, 'previous_hash': '12', 'timestamp': 1465154705,
                                      'data': 'test-block', 'hash': '12345'}), self.block.json())
 
 
@@ -123,7 +123,7 @@ class TestBlockchain(unittest.TestCase):
 
     def test_json(self):
         self.blockchain.add_block(self.blockchain.generate_new_block('new-block'))
-        self.assertEqual(json.dumps([b.dict() for b in self.blockchain.blocks]), self.blockchain.json())
+        self.assertEqual(convert_dumps({'blocks': [b.dict() for b in self.blockchain.blocks]}), self.blockchain.json())
 
 
 class HTTPTest(AioHTTPTestCase):
@@ -144,16 +144,8 @@ class HTTPTest(AioHTTPTestCase):
         request = await self.client.request("POST", "/mineBlock", data='{"data": "new-block"}')
         self.assertEqual(200, request.status)
 
-        new_block_dict = json.loads(await request.text())
+        new_block_dict = convert_loads(await request.text())
         self.assertEqual(self.server.blockchain.latest_block.data, new_block_dict['data'])
-
-    # @unittest_run_loop
-    # async def test_add_peer(self):
-    #     address = '{}:{}'.format(self.client.server.host, self.client.server.port)
-    #     self.client.server.start_server()
-    #     request = await self.client.request("POST", "/addPeer", data='{"peer": "%s"}' % address)
-    #     self.assertEqual(200, request.status)
-    #     print(self.server.peer_connections)
 
 
 class WSTest(AioHTTPTestCase):
@@ -164,20 +156,20 @@ class WSTest(AioHTTPTestCase):
     @unittest_run_loop
     async def test_query_latest(self):
         ws = await self.client.ws_connect('/ws')
-        ws.send_str(json.dumps({'type': MessageTypes.QUERY_LATEST}))
+        ws.send_str(convert_dumps({'type': MessageTypes.QUERY_LATEST}))
 
         async for msg in ws:
-            data = json.loads(msg.data)['data']
+            data = convert_loads(msg.data)['data']
             self.assertEqual(data, self.server.blockchain.latest_block.dict())
             return ws.close()
 
     @unittest_run_loop
     async def test_query_all(self):
         ws = await self.client.ws_connect('/ws')
-        ws.send_str(json.dumps({'type': MessageTypes.QUERY_ALL}))
+        ws.send_str(convert_dumps({'type': MessageTypes.QUERY_ALL}))
 
         async for msg in ws:
-            data = json.loads(msg.data)['data']
+            data = convert_loads(msg.data)['data']
             self.assertEqual(data, self.server.blockchain.dict())
             return ws.close()
 
@@ -187,7 +179,7 @@ class WSTest(AioHTTPTestCase):
         other_blockchain.add_block(other_blockchain.generate_new_block('new-block'))
 
         ws = await self.client.ws_connect('/ws')
-        ws.send_str(json.dumps({'type': MessageTypes.RESPONSE_BLOCKCHAIN, 'data': other_blockchain.dict()}))
+        ws.send_str(convert_dumps({'type': MessageTypes.RESPONSE_BLOCKCHAIN, 'data': other_blockchain.dict()}))
 
         async for msg in ws:
             self.assertEqual(other_blockchain.latest_block, self.server.blockchain.latest_block)

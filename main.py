@@ -1,4 +1,3 @@
-import json
 import os
 from enum import IntEnum
 from typing import List
@@ -7,6 +6,7 @@ import aiohttp
 from aiohttp import web
 
 from blockchain import Blockchain, Block
+from utils import convert_loads, convert_dumps
 
 
 class MessageTypes(IntEnum):
@@ -45,27 +45,27 @@ class Server(object):
         return web.Response(text=self.blockchain.json(), content_type='application/json')
 
     async def mine_block(self, request):
-        data = json.loads((await request.read()).decode('utf-8'))['data']
+        data = convert_loads((await request.read()).decode('utf-8'))['data']
         new_block = self.blockchain.generate_new_block(data)
         self.blockchain.add_block(new_block)
         print('block added ', new_block.json())
         return web.Response(text=new_block.json(), content_type='application/json')
 
     async def add_peer(self, request):
-        peer = json.loads((await request.read()).decode('utf-8'))['peer']
+        peer = convert_loads((await request.read()).decode('utf-8'))['peer']
         await self.connect_to_peers([peer])
         return web.Response(text='', content_type='application/json')
 
     async def handle_query_all(self, ws):
-        ws.send_str(json.dumps({'type': MessageTypes.RESPONSE_BLOCKCHAIN,
-                                'data': self.blockchain.dict()}))
+        ws.send_str(convert_dumps({'type': MessageTypes.RESPONSE_BLOCKCHAIN,
+                                   'data': self.blockchain.dict()}))
 
     async def handle_query_latest(self, ws):
-        ws.send_str(json.dumps({'type': MessageTypes.RESPONSE_BLOCKCHAIN,
-                                'data': self.blockchain.latest_block.dict()}))
+        ws.send_str(convert_dumps({'type': MessageTypes.RESPONSE_BLOCKCHAIN,
+                                   'data': self.blockchain.latest_block.dict()}))
 
     async def handle_response_blockchain(self, ws, msg):
-        received_blocks = json.loads(msg.data)['data']
+        received_blocks = convert_loads(msg.data)['data']
         latest_block_received = received_blocks[-1]
 
         if len(received_blocks) > self.blockchain.length:
@@ -88,11 +88,11 @@ class Server(object):
             ws.send_str(None)
 
     def get_response_latest_msg(self) -> str:
-        return json.dumps({'type': MessageTypes.RESPONSE_BLOCKCHAIN,
-                           'data': [self.blockchain.latest_block.dict()]})
+        return convert_dumps({'type': MessageTypes.RESPONSE_BLOCKCHAIN,
+                              'data': [self.blockchain.latest_block.dict()]})
 
     def get_query_all_msg(self) -> str:
-        return json.dumps({'type': MessageTypes.QUERY_ALL})
+        return convert_dumps({'type': MessageTypes.QUERY_ALL})
 
     async def ws_handler(self, request):
         ws = web.WebSocketResponse()
@@ -100,7 +100,7 @@ class Server(object):
 
         async for msg in ws:
             if msg.type == aiohttp.WSMsgType.TEXT:
-                data = json.loads(msg.data)
+                data = convert_loads(msg.data)
 
                 if 'type' not in data:
                     raise ValueError('Wrong message format')
