@@ -1,7 +1,8 @@
 import hashlib
-import json
 from datetime import datetime
 from typing import Optional, List
+
+from utils import convert_dumps
 
 
 class Block(object):
@@ -23,7 +24,7 @@ class Block(object):
                 'timestamp': self.timestamp, 'data': self.data, 'hash': self.hash}
 
     def json(self) -> str:
-        return json.dumps(self.dict())
+        return convert_dumps(self.dict())
 
 
 class Blockchain(object):
@@ -104,7 +105,7 @@ class Blockchain(object):
         return [b.dict() for b in self.blocks]
 
     def json(self) -> str:
-        return json.dumps(self.dict())
+        return convert_dumps({'blocks': self.dict()})
 
     def log(self, msg):
         if self.debug:
