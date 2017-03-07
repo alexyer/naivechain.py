@@ -1,5 +1,7 @@
 import json
+import os
 from enum import IntEnum
+from typing import List
 
 import aiohttp
 from aiohttp import web
@@ -14,23 +16,42 @@ class MessageTypes(IntEnum):
 
 
 class Server(object):
-    def __init__(self, app):
+    def __init__(self, loop, initial_peers=None):
         self.blockchain = Blockchain()
-        self.app = app
+        self.peer_connections = []
+        self.session = None
+        self.app = web.Application(loop=loop)
+        self.loop = loop
+
+        if initial_peers:
+            self.connect_to_peers(initial_peers)
 
         self.app.router.add_get('/blocks', self.blocks)
         self.app.router.add_post('/mineBlock', self.mine_block)
+        self.app.router.add_post('/addPeer', self.add_peer)
         self.app.router.add_get('/ws', self.ws_handler)
+
+    async def connect_to_peers(self, peers: List[str]):
+        async with aiohttp.ClientSession(loop=self.loop) as session:
+            for peer in peers:
+                print(peer)
+                connection = await session.ws_connect(peer)
+                # self.peer_connections.append(connection)
 
     async def blocks(self, request):
         return web.Response(text=self.blockchain.json(), content_type='application/json')
 
     async def mine_block(self, request):
-        data = (await request.read()).decode('utf-8')
+        data = json.loads((await request.read()).decode('utf-8'))['data']
         new_block = self.blockchain.generate_new_block(data)
         self.blockchain.add_block(new_block)
         print('block added ', new_block.json())
         return web.Response(text=new_block.json(), content_type='application/json')
+
+    async def add_peer(self, request):
+        peer = json.loads((await request.read()).decode('utf-8'))['peer']
+        await self.connect_to_peers([peer])
+        return web.Response(text='', content_type='application/json')
 
     async def handle_query_all(self, ws):
         ws.send_str(json.dumps({'type': MessageTypes.RESPONSE_BLOCKCHAIN,
@@ -87,10 +108,17 @@ class Server(object):
         return ws
 
 
-def get_server(loop=None):
-    return Server(web.Application(loop=loop))
+def get_server(loop=None, initial_peers=list()):
+    return Server(loop, initial_peers)
 
 
 if __name__ == '__main__':
-    server = get_server()
-    web.run_app(server.app)
+    port = os.environ.get('HTTP_PORT', 3001)
+    initial_peers = os.environ.get('PEERS', [])
+
+    if initial_peers:
+        initial_peers = initial_peers.split(',')
+
+    server = get_server(initial_peers=initial_peers)
+
+    web.run_app(server.app, port=int(port))
